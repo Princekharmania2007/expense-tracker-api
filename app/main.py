@@ -28,6 +28,7 @@ from app.models import (
     ExpenseSummaryResponse,
     ExpenseUpdate,
 )
+from app.llm import categorize
 from app.summary import calculate_summary
 
 
@@ -65,10 +66,14 @@ def health_check():
 def create_expense(expense: ExpenseCreate):
     """
     Create a new expense entry.
-    If category is omitted, defaults to Category.OTHER (AI categorization integrated in Step 5).
+    If category is omitted, uses AI categorization via app.llm.categorize().
     """
-    # Fallback to OTHER if no category provided (handled by LLM in Step 5)
-    category_value = expense.category.value if expense.category else Category.OTHER.value
+    # Use user-supplied category, or let AI categorize based on description
+    if expense.category:
+        category_value = expense.category.value
+    else:
+        category_value = categorize(expense.description).value
+
     date_str = expense.date.isoformat() if expense.date else None
 
     created = db_insert_expense(
