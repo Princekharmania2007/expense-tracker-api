@@ -7,9 +7,10 @@ and easy to explain in technical interviews. Parameterized queries ('?') are use
 throughout to protect against SQL injection vulnerabilities.
 """
 
+from contextlib import contextmanager
 import os
 import sqlite3
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 
 def get_db_path(custom_path: Optional[str] = None) -> str:
@@ -23,13 +24,27 @@ def get_db_path(custom_path: Optional[str] = None) -> str:
     return os.getenv("DATABASE_PATH", "expenses.db")
 
 
+@contextmanager
+def get_db_connection(db_path: Optional[str] = None) -> Generator[sqlite3.Connection, None, None]:
+    """
+    Context manager that yields an open SQLite connection and guarantees
+    it is closed upon exiting.
+    """
+    path = get_db_path(db_path)
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row  # Enables column-name dictionary access
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
 def init_db(db_path: Optional[str] = None) -> None:
     """
     Create the 'expenses' table if it does not already exist.
     Called automatically on application startup.
     """
-    path = get_db_path(db_path)
-    with sqlite3.connect(path) as conn:
+    with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS expenses (
@@ -54,9 +69,7 @@ def insert_expense(
     Insert a new expense record into the SQLite database.
     Returns the newly created expense as a dictionary.
     """
-    path = get_db_path(db_path)
-    with sqlite3.connect(path) as conn:
-        conn.row_factory = sqlite3.Row  # Enables column-name dictionary access
+    with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -83,9 +96,7 @@ def get_all_expenses(
     Retrieve all expenses, optionally filtered by category.
     Ordered by newest ID first.
     """
-    path = get_db_path(db_path)
-    with sqlite3.connect(path) as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         if category:
             cursor.execute(
@@ -117,9 +128,7 @@ def get_expense_by_id(
     Fetch a single expense by its primary key ID.
     Returns None if no matching expense is found.
     """
-    path = get_db_path(db_path)
-    with sqlite3.connect(path) as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT id, amount, description, category, date FROM expenses WHERE id = ?",
@@ -138,9 +147,7 @@ def update_expense(
     Update provided fields of an existing expense by ID.
     Returns the updated expense dict, or None if the record does not exist.
     """
-    path = get_db_path(db_path)
-    with sqlite3.connect(path) as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
 
         # First check if the record exists
@@ -178,8 +185,7 @@ def delete_expense(
     Delete an expense by ID.
     Returns True if a record was deleted, False if no matching record was found.
     """
-    path = get_db_path(db_path)
-    with sqlite3.connect(path) as conn:
+    with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
         conn.commit()

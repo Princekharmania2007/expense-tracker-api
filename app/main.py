@@ -28,6 +28,7 @@ from app.models import (
     ExpenseSummaryResponse,
     ExpenseUpdate,
 )
+from app.summary import calculate_summary
 
 
 @asynccontextmanager
@@ -102,25 +103,9 @@ def list_expenses(category: Optional[Category] = Query(default=None, description
 def get_expenses_summary():
     """
     Get aggregated summary statistics for all expenses.
-    (Detailed Pandas implementation added in Step 4).
+    Computed via Pandas in app.summary.calculate_summary().
     """
-    expenses = db_get_all_expenses()
-    total = sum(e["amount"] for e in expenses)
-    by_category: dict[str, float] = {}
-    by_month: dict[str, float] = {}
-
-    for e in expenses:
-        cat = e["category"]
-        by_category[cat] = by_category.get(cat, 0.0) + e["amount"]
-        month = e["date"][:7] if len(e["date"]) >= 7 else "Unknown"
-        by_month[month] = by_month.get(month, 0.0) + e["amount"]
-
-    return {
-        "total": round(total, 2),
-        "count": len(expenses),
-        "by_category": {k: round(v, 2) for k, v in by_category.items()},
-        "by_month": {k: round(v, 2) for k, v in by_month.items()},
-    }
+    return calculate_summary()
 
 
 @app.get(
