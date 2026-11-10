@@ -134,3 +134,4 @@ def categorize(description: str) -> Category:
     except Exception as exc:
         logger.warning("Unexpected error during LLM categorization: %s; defaulting to Category.OTHER", exc)
         return Category.OTHER
+
